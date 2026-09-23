@@ -7,7 +7,7 @@ type PropertyResultsProps = {
 
 export default function PropertyResults({ properties }: PropertyResultsProps) {
   if (properties.length === 0) {
-    return null;
+    return <div>No Listing Found</div>;
   }
 
   return (

@@ -1,7 +1,13 @@
 "use client";
 import { LocationSuggestion } from "@/types/location";
 import type { RentCastListing } from "@/app/api/properties/route";
-import { useState, useEffect, ChangeEvent, FormEvent } from "react";
+import {
+  useState,
+  useEffect,
+  ChangeEvent,
+  FormEvent,
+  KeyboardEvent,
+} from "react";
 import PropertyResults from "./propertyResults";
 
 export default function PropertySearch() {
@@ -11,6 +17,7 @@ export default function PropertySearch() {
   const [error, setError] = useState<string | null>(null);
   const [properties, setProperties] = useState<RentCastListing[]>([]);
   const [locations, setLocations] = useState<LocationSuggestion[]>([]);
+  const [activeLocationIndex, setActiveLocationIndex] = useState(-1);
 
   const [selectedLocation, setSelectedLocation] =
     useState<LocationSuggestion | null>(null);
@@ -40,6 +47,7 @@ export default function PropertySearch() {
         }
         const data: LocationSuggestion[] = await response.json();
         setLocations(data);
+        setActiveLocationIndex(-1);
       } catch (error) {
         if (error instanceof Error && error.name !== "AbortError") {
           console.error(error.message);
@@ -59,6 +67,7 @@ export default function PropertySearch() {
     const nextQuery = e.target.value;
     setQuery(nextQuery);
     setSelectedLocation(null);
+    setActiveLocationIndex(-1);
     if (nextQuery.trim().length < 2) {
       setLocations([]);
     }
@@ -69,7 +78,41 @@ export default function PropertySearch() {
     setQuery(location.city);
     setSelectedLocation(location);
     setLocations([]);
+    setActiveLocationIndex(-1);
     setError("");
+  };
+
+  const handleLocationKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Escape") {
+      setLocations([]);
+      setActiveLocationIndex(-1);
+      return;
+    }
+
+    if (locations.length === 0) {
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveLocationIndex((currentIndex) =>
+        currentIndex >= locations.length - 1 ? 0 : currentIndex + 1,
+      );
+      return;
+    }
+
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveLocationIndex((currentIndex) =>
+        currentIndex <= 0 ? locations.length - 1 : currentIndex - 1,
+      );
+      return;
+    }
+
+    if (e.key === "Enter" && activeLocationIndex >= 0) {
+      e.preventDefault();
+      handleLocationSelect(locations[activeLocationIndex]);
+    }
   };
 
   const handleSearch = async (e: FormEvent<HTMLFormElement>) => {
@@ -135,26 +178,48 @@ export default function PropertySearch() {
                 id="location"
                 name="location"
                 type="text"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded={locations.length > 0}
+                aria-controls="location-suggestions"
+                aria-activedescendant={
+                  activeLocationIndex >= 0
+                    ? `location-option-${activeLocationIndex}`
+                    : undefined
+                }
                 value={query}
                 onChange={handleInputChange}
+                onKeyDown={handleLocationKeyDown}
                 placeholder="Enter a city, state or ZIP code"
                 className="h-14 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-base text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:bg-white focus:ring-4 focus:ring-emerald-100"
               />
               {locationLoading && <p>Finding locations...</p>}
 
               {locations.length > 0 && (
-                <ul className="absolute w-full bg-white shadow-lg text-black px-3 text-left">
-                  {locations.map((location) => (
-                    <li key={location.id}>
-                      <button
-                        type="button"
-                        onClick={() => handleLocationSelect(location)}
-                      >
-                        {location.label}
-                      </button>
-                    </li>
+                <div
+                  id="location-suggestions"
+                  role="listbox"
+                  aria-label="Location suggestions"
+                  className="absolute w-full bg-white px-3 text-left text-black shadow-lg"
+                >
+                  {locations.map((location, index) => (
+                    <button
+                      id={`location-option-${index}`}
+                      key={location.id}
+                      type="button"
+                      role="option"
+                      aria-selected={activeLocationIndex === index}
+                      tabIndex={-1}
+                      onMouseEnter={() => setActiveLocationIndex(index)}
+                      onClick={() => handleLocationSelect(location)}
+                      className={`block w-full px-3 py-2 text-left ${
+                        activeLocationIndex === index ? "bg-emerald-50" : ""
+                      }`}
+                    >
+                      {location.label}
+                    </button>
                   ))}
-                </ul>
+                </div>
               )}
             </div>
 
